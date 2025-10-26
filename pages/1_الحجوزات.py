@@ -1,59 +1,112 @@
 import streamlit as st
-import sqlite3
-from datetime import datetime
+from db import _conn, add_booking
 
-st.set_page_config(page_title="الحجوزات", page_icon="🛎️", layout="wide")
+# اللغة
+if "lang" not in st.session_state:
+    st.session_state["lang"] = "ar"
 
-def get_conn():
-    return sqlite3.connect("hotel.db")
+rtl = (st.session_state["lang"] == "ar")
 
-st.markdown("<h2 style='text-align:right;'>🛎️ إدارة الحجوزات</h2>", unsafe_allow_html=True)
-st.write("---")
+if rtl:
+    st.markdown("""
+    <style>
+    html, body, [class^='css']{ direction: RTL; text-align:right; }
+    </style>
+    """, unsafe_allow_html=True)
 
-with st.form("add_reservation", clear_on_submit=True):
-    st.markdown("### ➕ إضافة حجز جديد")
+st.title("🏨 الحجوزات" if rtl else "🏨 Bookings")
+
+conn = _conn()
+
+clients = conn.execute("SELECT id, name FROM clients").fetchall()
+hotels = conn.execute("SELECT id, name_ar, name_en FROM hotels").fetchall()
+restaurants = conn.execute("SELECT id, name_ar, name_en, type FROM restaurants").fetchall()
+
+with st.form("new_booking", clear_on_submit=True):
+    st.subheader("➕ إضافة حجز جديد" if rtl else "➕ Add New Booking")
 
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        customer = st.text_input("اسم العميل")
-        hotel_name = st.text_input("اسم الفندق")
-        room_count = st.number_input("عدد الغرف", min_value=1, step=1)
+        client = st.selectbox("العميل" if rtl else "Client", clients, format_func=lambda x: x["name"])
+        hotel = st.selectbox("الفندق" if rtl else "Hotel", hotels,
+                             format_func=lambda x: x["name_ar"] if rtl else x["name_en"])
+        pax = st.number_input("عدد الأشخاص" if rtl else "PAX", min_value=1, step=1)
 
     with col2:
-        check_in = st.date_input("تاريخ الدخول")
-        check_out = st.date_input("تاريخ الخروج")
-        price_per_night = st.number_input("سعر الغرفة لليوم", min_value=0.0, step=1.0)
+        checkin = st.date_input("الدخول" if rtl else "Check-in")
+        checkout = st.date_input("الخروج" if rtl else "Check-out")
+        rooms = st.number_input("عدد الغرف" if rtl else "Rooms", min_value=1, step=1)
 
     with col3:
-        meal_cost = st.number_input("تكلفة الوجبات (اختياري)", min_value=0.0, step=1.0)
-        notes = st.text_area("ملاحظات إضافية")
+        room_cost = st.number_input("تكلفة الغرفة/ليلة" if rtl else "Room Cost/Night", min_value=0.0)
+        room_price = st.number_input("سعر بيع الغرفة/ليلة" if rtl else "Room Price/Night", min_value=0.0)
 
-    submit = st.form_submit_button("حفظ الحجز ✅")
+    st.markdown("---")
 
-    if submit:
-        nights = (check_out - check_in).days
-        total_room_cost = room_count * price_per_night * nights
-        total_cost = total_room_cost + meal_cost
+    restaurant_mode = st.selectbox("نظام الوجبات" if rtl else "Meal Mode",
+                                   ["none","full_kitchen","chair_fee"],
+                                   format_func=lambda x: {"none":"بدون","full_kitchen":"مطبخ خارجي","chair_fee":"كرسي"}[x] if rtl else x)
 
-        conn = get_conn()
-        cur = conn.cursor()
-        cur.execute("""
-        INSERT INTO reservations(customer, hotel_name, room_count, check_in, check_out, price_per_night, meal_cost, total_cost, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (customer, hotel_name, room_count, str(check_in), str(check_out), price_per_night, meal_cost, total_cost, notes))
-        conn.commit()
-        conn.close()
+    restaurant_id = None
 
-        st.success("✅ تم حفظ الحجز بنجاح")
+    if restaurant_mode == "full_kitchen":
+        restaurant = st.selectbox("المطعم" if rtl else "Restaurant",
+                                  restaurants,
+                                  format_func=lambda x: x["name_ar"] if rtl else x["name_en"])
+        restaurant_id = restaurant["id"]
+        meal_cost = st.number_input("تكلفة 3 وجبات/فرد/يوم" if rtl else "Meal Cost/Person/Day", min_value=0.0)
+        meal_price = st.number_input("سعر بيع الوجبات" if rtl else "Meal Sell Price", min_value=0.0)
+        chair_price = 0
 
-st.write("### 📋 قائمة الحجوزات")
-conn = get_conn()
-rows = conn.execute("SELECT rowid, * FROM reservations ORDER BY rowid DESC").fetchall()
-conn.close()
+    elif restaurant_mode == "chair_fee":
+        meal_cost = 0
+        meal_price = 0
+        chair_price = st.number_input("سعر الكرسي/فرد/يوم" if rtl else "Chair Fee/Person/Day", min_value=0.0)
 
-if rows:
-    for r in rows:
-        st.write(f"**رقم:** {r[0]} | **عميل:** {r[1]} | **فندق:** {r[2]} | **الإجمالي:** {r[8]} ريال")
-else:
-    st.info("لا يوجد حجوزات بعد.")
+    else:
+        meal_cost = 0
+        meal_price = 0
+        chair_price = 0
+
+    paid = st.number_input("مدفوع من العميل" if rtl else "Paid by Client", min_value=0.0, step=1.0)
+    notes = st.text_area("ملاحظات" if rtl else "Notes")
+
+    submitted = st.form_submit_button("حفظ ✅" if rtl else "Save ✅")
+
+    if submitted:
+        data = dict(
+            code=None,
+            client_id=client["id"],
+            hotel_id=hotel["id"],
+            restaurant_id=restaurant_id,
+            checkin=str(checkin),
+            checkout=str(checkout),
+            rooms=rooms,
+            pax=pax,
+            room_cost=room_cost,
+            room_price=room_price,
+            meal_cost=meal_cost,
+            meal_price=meal_price,
+            chair_price=chair_price,
+            restaurant_mode=restaurant_mode,
+            paid=paid,
+            notes=notes
+        )
+        add_booking(data)
+        st.success("✅ تم تسجيل الحجز ومعالجته محاسبيًا" if rtl else "✅ Booking saved with full accounting processing")
+        st.experimental_rerun()
+
+st.write("---")
+st.write("🧾 آخر الحجوزات" if rtl else "🧾 Recent Bookings")
+
+rows = conn.execute("""
+SELECT b.code, c.name, h.name_ar, b.checkin, b.checkout, b.rooms, b.pax
+FROM bookings b
+LEFT JOIN clients c ON c.id=b.client_id
+LEFT JOIN hotels h ON h.id=b.hotel_id
+ORDER BY b.id DESC LIMIT 12
+""").fetchall()
+
+for r in rows:
+    st.write(f"**{r[0]}** | {r[1]} | {r[2]} | {r[3]} → {r[4]} | {r[5]} غرفة | {r[6]} شخص")
