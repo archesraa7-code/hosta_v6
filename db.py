@@ -132,3 +132,24 @@ def init_db():
 
     session.commit()
     return session
+import sqlite3
+
+conn = sqlite3.connect("hotel.db")
+cursor = conn.cursor()
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS reservations (
+    customer TEXT,
+    hotel_name TEXT,
+    room_count INTEGER,
+    check_in TEXT,
+    check_out TEXT,
+    price_per_night REAL,
+    meal_cost REAL,
+    total_cost REAL,
+    notes TEXT
+)
+""")
+
+conn.commit()
+conn.close()
