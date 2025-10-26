@@ -1,62 +1,46 @@
 import streamlit as st
-from db import _conn, party_balance, party_ledger
+from db import _conn, get_balance, get_statement
 
-if "lang" not in st.session_state:
-    st.session_state["lang"] = "ar"
-
-rtl = (st.session_state["lang"] == "ar")
-
-if rtl:
-    st.markdown("""
-    <style>
-    html, body, [class^='css']{ direction: RTL; text-align:right; }
-    </style>
-    """, unsafe_allow_html=True)
-
-st.title("📒 كشف حساب" if rtl else "📒 Statement")
+st.title("📄 كشف حساب")
 
 conn = _conn()
 
-ptype = st.selectbox(
-    "اختر الطرف" if rtl else "Select Party",
-    ["client","hotel","restaurant","agent"],
-    format_func=lambda x: {
-        "client":"عميل",
-        "hotel":"فندق",
-        "restaurant":"مطعم",
-        "agent":"مندوب"
-    }[x] if rtl else x
-)
+# اختيار النوع
+party_type = st.selectbox("نوع الحساب", {
+    "client": "عميل / شركة",
+    "hotel": "فندق",
+    "restaurant": "مطعم",
+}.keys(), format_func=lambda x: {
+    "client": "عميل / شركة",
+    "hotel": "فندق",
+    "restaurant": "مطعم",
+}[x])
 
-# تحميل قائمة الأسماء حسب الاختيار
-if ptype == "client":
-    items = conn.execute("SELECT id,name n FROM clients").fetchall()
-elif ptype == "hotel":
-    items = conn.execute("SELECT id,name_ar n FROM hotels").fetchall()
-elif ptype == "restaurant":
-    items = conn.execute("SELECT id,name_ar n FROM restaurants").fetchall()
+# جلب القائمة حسب الاختيار
+if party_type == "client":
+    parties = conn.execute("SELECT id, name as label FROM clients").fetchall()
+elif party_type == "hotel":
+    parties = conn.execute("SELECT id, name_ar as label FROM hotels").fetchall()
 else:
-    items = conn.execute("SELECT id,name n FROM agents").fetchall()
+    parties = conn.execute("SELECT id, name_ar as label FROM restaurants").fetchall()
 
-selected = st.selectbox("الاسم" if rtl else "Name", items, format_func=lambda r: r["n"])
+party = st.selectbox("اختار الحساب", [(p["label"], p["id"]) for p in parties], format_func=lambda x: x[0])
 
-if selected:
-    balance = party_balance(ptype, selected["id"])
-    st.subheader(("الرصيد الحالي: " if rtl else "Balance: ") + f"{balance:,.2f} ر.س")
+if party:
+    pid = party[1]
 
-    data = party_ledger(ptype, selected["id"])
+    balance = get_balance(party_type, pid)
+    st.info(f"**الرصيد الحالي:** {balance:,.2f} ر.س")
 
-    st.write("**مدين** = علينا له / **دائن** = له علينا" if rtl else "**Debit** / **Credit** Interpretation")
+    st.write("### الحركات")
+    rows = get_statement(party_type, pid)
 
-    st.table([
-        {
-            ("التاريخ" if rtl else "Date"): d,
-            ("نوع" if rtl else "Type"): t,
-            ("مرجع" if rtl else "Ref"): ref,
-            ("البيان" if rtl else "Description"): desc,
-            ("مدين" if rtl else "Debit"): f"{debit:,.2f}" if debit else "",
-            ("دائن" if rtl else "Credit"): f"{credit:,.2f}" if credit else "",
-            ("الرصيد" if rtl else "Balance"): f"{bal:,.2f}"
-        }
-        for (d,t,ref,desc,debit,credit,bal) in data
-    ])
+    for r in rows:
+        direction = "مدين ➕" if r["direction"] == "debit" else "دائن ➖"
+        st.write(f"""
+        **التاريخ:** {r["date"]}
+        - **البيان:** {r["notes"]}
+        - **المبلغ:** {r["amount"]:,.2f} ر.س
+        - **النوع:** {direction}
+        ---
+        """)
