@@ -1,68 +1,62 @@
 import streamlit as st
-import sqlite3
-from datetime import datetime
+from db import _conn, party_balance, party_ledger
 
-st.set_page_config(page_title="كشف الحساب", page_icon="📒", layout="wide")
+if "lang" not in st.session_state:
+    st.session_state["lang"] = "ar"
 
-def get_conn():
-    return sqlite3.connect("hotel.db")
+rtl = (st.session_state["lang"] == "ar")
 
-st.markdown("<h2 style='text-align:right;'>📒 كشف حساب العميل</h2>", unsafe_allow_html=True)
-st.write("---")
+if rtl:
+    st.markdown("""
+    <style>
+    html, body, [class^='css']{ direction: RTL; text-align:right; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# اختيار عميل
-conn = get_conn()
-customers = conn.execute("SELECT DISTINCT customer FROM reservations").fetchall()
-customers = [c[0] for c in customers]
-conn.close()
+st.title("📒 كشف حساب" if rtl else "📒 Statement")
 
-if customers:
-    customer = st.selectbox("اختر العميل", customers)
+conn = _conn()
+
+ptype = st.selectbox(
+    "اختر الطرف" if rtl else "Select Party",
+    ["client","hotel","restaurant","agent"],
+    format_func=lambda x: {
+        "client":"عميل",
+        "hotel":"فندق",
+        "restaurant":"مطعم",
+        "agent":"مندوب"
+    }[x] if rtl else x
+)
+
+# تحميل قائمة الأسماء حسب الاختيار
+if ptype == "client":
+    items = conn.execute("SELECT id,name n FROM clients").fetchall()
+elif ptype == "hotel":
+    items = conn.execute("SELECT id,name_ar n FROM hotels").fetchall()
+elif ptype == "restaurant":
+    items = conn.execute("SELECT id,name_ar n FROM restaurants").fetchall()
 else:
-    st.warning("لا يوجد عملاء بعد.")
-    st.stop()
+    items = conn.execute("SELECT id,name n FROM agents").fetchall()
 
-# حساب الإجماليات
-conn = get_conn()
-reservations = conn.execute("SELECT total_cost FROM reservations WHERE customer = ?", (customer,)).fetchall()
-payments = conn.execute("SELECT amount FROM payments WHERE customer = ?", (customer,)).fetchall()
-conn.close()
+selected = st.selectbox("الاسم" if rtl else "Name", items, format_func=lambda r: r["n"])
 
-total_due = sum([r[0] for r in reservations])
-total_paid = sum([p[0] for p in payments])
-remaining = total_due - total_paid
+if selected:
+    balance = party_balance(ptype, selected["id"])
+    st.subheader(("الرصيد الحالي: " if rtl else "Balance: ") + f"{balance:,.2f} ر.س")
 
-col1, col2, col3 = st.columns(3)
-col1.metric("إجمالي المستحق", f"{total_due:.2f} ر.س")
-col2.metric("المدفوع", f"{total_paid:.2f} ر.س")
-col3.metric("المتبقي", f"{remaining:.2f} ر.س")
+    data = party_ledger(ptype, selected["id"])
 
-st.write("---")
+    st.write("**مدين** = علينا له / **دائن** = له علينا" if rtl else "**Debit** / **Credit** Interpretation")
 
-# إضافة دفعة
-with st.form("add_payment", clear_on_submit=True):
-    st.markdown("### 💵 تسجيل دفعة")
-    pay_amount = st.number_input("المبلغ", min_value=0.0, step=1.0)
-    submit_payment = st.form_submit_button("تسجيل الدفعة ✅")
-
-    if submit_payment:
-        conn = get_conn()
-        cur = conn.cursor()
-        cur.execute("INSERT INTO payments(customer, amount, date) VALUES (?, ?, ?)", 
-                    (customer, pay_amount, str(datetime.now().date())))
-        conn.commit()
-        conn.close()
-        st.success("✅ تم تسجيل الدفعة بنجاح")
-        st.experimental_rerun()
-
-# عرض جميع الحركات
-st.write("### 🧾 سجل المدفوعات")
-conn = get_conn()
-history = conn.execute("SELECT amount, date FROM payments WHERE customer = ?", (customer,)).fetchall()
-conn.close()
-
-if history:
-    for h in history:
-        st.write(f"📌 **{h[1]}** — دفع: **{h[0]}** ر.س")
-else:
-    st.info("لا يوجد مدفوعات لهذا العميل بعد.")
+    st.table([
+        {
+            ("التاريخ" if rtl else "Date"): d,
+            ("نوع" if rtl else "Type"): t,
+            ("مرجع" if rtl else "Ref"): ref,
+            ("البيان" if rtl else "Description"): desc,
+            ("مدين" if rtl else "Debit"): f"{debit:,.2f}" if debit else "",
+            ("دائن" if rtl else "Credit"): f"{credit:,.2f}" if credit else "",
+            ("الرصيد" if rtl else "Balance"): f"{bal:,.2f}"
+        }
+        for (d,t,ref,desc,debit,credit,bal) in data
+    ])
