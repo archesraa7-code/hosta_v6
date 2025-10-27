@@ -53,31 +53,36 @@ table { direction: rtl !important; text-align:right !important; }
 """, unsafe_allow_html=True)
 
 # ========= Sidebar (الأقسام) =========
+import streamlit as st
+
+st.set_page_config(page_title="Hilben Ops Pro", page_icon="🏨", layout="wide")
+
+# ================= Sidebar Navigation ================
 with st.sidebar:
-    st.title("🏨 Hilben — لوحة التحكم")
-
-    st.page_link("app.py", label="الصفحة الرئيسية", icon="🏠")
+    st.title("🏨 Hilben Ops Pro")
     st.markdown("---")
 
-    st.page_link("pages/1_🛏️_إدارة_الحجوزات.py", label="إدارة الحجوزات", icon="🛏️")
-    st.page_link("pages/2_👥_إدارة_العملاء.py", label="إدارة العملاء", icon="👥")
-    st.page_link("pages/3_🏨_إدارة_الفنادق.py", label="إقامة الفنادق", icon="🏨")
-    st.page_link("pages/4_🍽️_إدارة_المطاعم.py", label="إدارة المطاعم", icon="🍽️")
-    st.page_link("pages/5_🧑‍💼_إدارة_الموظفين.py", label="إدارة الموظفين", icon="🧑‍💼")
+    st.page_link("app.py", label="🏠 الصفحة الرئيسية")
 
-    st.markdown("---")
+    st.markdown("### 🧭 إدارة العمليات")
+    st.page_link("pages/1_bookings.py", label="🛏️ إدارة الحجوزات")
+    st.page_link("pages/2_clients.py", label="👥 إدارة العملاء")
+    st.page_link("pages/3_hotels.py", label="🏨 إدارة الفنادق")
+    st.page_link("pages/4_restaurants.py", label="🍽️ إدارة المطاعم")
+    st.page_link("pages/5_employees.py", label="🧑‍💼 إدارة الموظفين")
 
-    st.page_link("pages/6_🧾_السندات.py", label="السندات (قبض/صرف)", icon="🧾")
-    st.page_link("pages/7_💸_المصروفات_اليومية.py", label="المصروفات اليومية", icon="💸")
-    st.page_link("pages/8_📄_كشف_الحسابات.py", label="كشف الحسابات", icon="📄")
-    st.page_link("pages/9_💰_الربحية_والتقارير.py", label="الربحية والتقارير", icon="💰")
+    st.markdown("### 💰 العمليات المالية")
+    st.page_link("pages/6_vouchers.py", label="🧾 السندات (قبض / صرف)")
+    st.page_link("pages/7_expenses.py", label="💸 المصروفات اليومية")
+    st.page_link("pages/8_statements.py", label="📄 كشف الحسابات")
+    st.page_link("pages/9_reports.py", label="💰 الربحية والتقارير")
 
-    st.markdown("---")
+    st.markdown("### ⚙️ إعدادات")
+    st.page_link("pages/10_settings.py", label="⚙️ إعدادات الشركة")
 
-    st.page_link("pages/10_⚙️_إعدادات_الشركة.py", label="إعدادات الشركة", icon="⚙️") 
-    st.markdown("---")
-    st.caption("Hilben Hotel Ops Pro — النسخة التجارية")
-
+# ================= Dashboard Content ================
+st.title("🏨 لوحة التحكم الرئيسية - Hilben Ops Pro")
+st.info("اختر وظيفة من القائمة الجانبية للبدء ✅")
 # ========= Helpers =========
 def fetch_scalar(sql, params=()):
     try:
