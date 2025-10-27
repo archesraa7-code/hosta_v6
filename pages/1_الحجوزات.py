@@ -1,82 +1,122 @@
 import streamlit as st
-from datetime import datetime
-from db import _conn, add_booking, add_client, add_hotel, add_restaurant
+from datetime import date
+from db import _conn, add_booking
 
 st.title("🏨 إدارة الحجوزات")
 
 conn = _conn()
 
-# جلب بيانات القوائم
-clients = conn.execute("SELECT id, name FROM customers").fetchall()
-hotels = conn.execute("SELECT id, name as label FROM hotels").fetchall()
-restaurants = conn.execute("SELECT id, name FROM restaurants").fetchall()
+# -----------------------------
+# تحميل القوائم من قاعدة البيانات (أسماء الأعمدة: name)
+# -----------------------------
+def load_lists():
+    customers = conn.execute("SELECT id, name FROM customers ORDER BY name").fetchall()
+    hotels    = conn.execute("SELECT id, name FROM hotels ORDER BY name").fetchall()
+    rests     = conn.execute("SELECT id, name FROM restaurants ORDER BY name").fetchall()
+    return customers, hotels, rests
 
-# ------------------------------
-# إضافة عملاء / فنادق / مطاعم
-# ------------------------------
+customers, hotels, restaurants = load_lists()
+
+# -----------------------------
+# إضافة سريعــة (عميل / فندق / مطعم)
+# -----------------------------
 with st.expander("➕ إضافة عميل / فندق / مطعم"):
-    col1, col2, col3 = st.columns(3)
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        new_cust = st.text_input("اسم العميل / الشركة", key="new_cust")
+        if st.button("إضافة عميل", key="btn_add_cust") and new_cust.strip():
+            conn.execute("INSERT INTO customers(name) VALUES (?)", (new_cust.strip(),))
+            conn.commit()
+            st.success("تمت إضافة العميل ✅")
+            customers, hotels, restaurants = load_lists()
 
-    with col1:
-        new_client = st.text_input("اسم العميل / الشركة")
-        if st.button("إضافة عميل"):
-            add_client(new_client)
-            st.success("تمت الإضافة ✅")
-            st.experimental_rerun()
+    with c2:
+        new_hotel = st.text_input("اسم الفندق", key="new_hotel")
+        if st.button("إضافة فندق", key="btn_add_hotel") and new_hotel.strip():
+            conn.execute("INSERT INTO hotels(name) VALUES (?)", (new_hotel.strip(),))
+            conn.commit()
+            st.success("تمت إضافة الفندق ✅")
+            customers, hotels, restaurants = load_lists()
 
-    with col2:
-        new_hotel = st.text_input("اسم الفندق")
-        if st.button("إضافة فندق"):
-            add_hotel(new_hotel)
-            st.success("تمت الإضافة ✅")
-            st.experimental_rerun()
+    with c3:
+        new_rest = st.text_input("اسم المطعم", key="new_rest")
+        if st.button("إضافة مطعم", key="btn_add_rest") and new_rest.strip():
+            conn.execute("INSERT INTO restaurants(name) VALUES (?)", (new_rest.strip(),))
+            conn.commit()
+            st.success("تمت إضافة المطعم ✅")
+            customers, hotels, restaurants = load_lists()
 
-    with col3:
-        new_rest = st.text_input("اسم المطعم")
-        if st.button("إضافة مطعم"):
-            add_restaurant(new_rest)
-            st.success("تمت الإضافة ✅")
-            st.experimental_rerun()
-
-# ------------------------------
-# نموذج الحجز
-# ------------------------------
+# -----------------------------
+# نموذج إضافة حجز
+# -----------------------------
 st.subheader("📝 إضافة حجز جديد")
 
-client = st.selectbox("العميل", [("اختر",None)] + [(c["name"], c["id"]) for c in clients], format_func=lambda x: x[0] if x else "")
-hotel = st.selectbox("الفندق", [("اختر",None)] + [(h["name_ar"], h["id"]) for h in hotels], format_func=lambda x: x[0] if x else "")
-restaurant = st.selectbox("المطعم (اختياري)", [("بدون مطعم", None)] + [(r["name_ar"], r["id"]) for r in restaurants], format_func=lambda x: x[0] if x else "")
+client_options = [("اختر العميل", None)] + [(c["name"], c["id"]) for c in customers]
+hotel_options  = [("اختر الفندق", None)] + [(h["name"], h["id"]) for h in hotels]
+rest_options   = [("بدون مطعم", None)] + [(r["name"], r["id"]) for r in restaurants]
 
-rooms = st.number_input("عدد الغرف", min_value=1, step=1)
-pax = st.number_input("عدد الأشخاص", min_value=1, step=1)
+sel_client = st.selectbox("العميل", client_options, index=0, key="sel_client",
+                          format_func=lambda x: x[0] if x else "")
+sel_hotel  = st.selectbox("الفندق", hotel_options,  index=0, key="sel_hotel",
+                          format_func=lambda x: x[0] if x else "")
+sel_rest   = st.selectbox("المطعم (اختياري)", rest_options, index=0, key="sel_rest",
+                          format_func=lambda x: x[0] if x else "")
 
-checkin = st.date_input("تاريخ الدخول")
-checkout = st.date_input("تاريخ الخروج")
+col_a, col_b, col_c, col_d = st.columns(4)
+with col_a:
+    rooms = st.number_input("عدد الغرف", min_value=1, step=1, key="rooms")
+with col_b:
+    pax = st.number_input("عدد الأشخاص", min_value=1, step=1, key="pax")
+with col_c:
+    checkin = st.date_input("تاريخ الدخول", value=date.today(), key="in_date")
+with col_d:
+    checkout = st.date_input("تاريخ الخروج", value=date.today(), key="out_date")
 
-room_price = st.number_input("سعر الغرفة لليلة (ريال)", min_value=0.0, step=1.0)
-meal_price = st.number_input("سعر الوجبات للفرد باليوم (اختياري)", min_value=0.0, step=1.0)
+col_p, col_m = st.columns(2)
+with col_p:
+    room_price = st.number_input("سعر الغرفة لليلة (ر.س)", min_value=0.0, step=1.0, key="room_price")
+with col_m:
+    meal_price = st.number_input("سعر الوجبات للفرد/اليوم (اختياري)", min_value=0.0, step=1.0, key="meal_price")
 
-notes = st.text_area("ملاحظات", "")
+notes = st.text_area("ملاحظات", key="notes")
 
-# حساب الليالي + الإجمالي
+# -----------------------------
+# حساب تلقائي
+# -----------------------------
 days = (checkout - checkin).days
 if days < 1:
-    st.warning("⚠️ تاريخ الخروج يجب أن يكون بعد الدخول")
+    st.warning("⚠️ يجب أن يكون تاريخ الخروج بعد تاريخ الدخول بيوم واحد على الأقل.")
 else:
     total_rooms = rooms * room_price * days
     total_meals = pax * meal_price * days
     total = total_rooms + total_meals
 
-    st.info(f"""
-    **عدد الليالي:** {days}
-    **إجمالي الغرف:** {total_rooms:,.2f} ر.س
-    **إجمالي الوجبات:** {total_meals:,.2f} ر.س
-    ### **الإجمالي النهائي: {total:,.2f} ر.س**
-    """)
+    st.info(
+        f"**عدد الليالي:** {days}  \n"
+        f"**إجمالي الغرف:** {total_rooms:,.2f} ر.س  \n"
+        f"**إجمالي الوجبات:** {total_meals:,.2f} ر.س  \n"
+        f"### **الإجمالي النهائي: {total:,.2f} ر.س**"
+    )
 
-    if st.button("💾 حفظ الحجز"):
-        if client[1] and hotel[1]:
-            booking_id = add_booking(client[1], hotel[1], restaurant[1] if restaurant else None, rooms, pax, str(checkin), str(checkout), room_price, meal_price, notes)
-            st.success(f"✅ تم تسجيل الحجز بنجاح (رقم الحجز: {booking_id})")
-        else:
-            st.error("❗ يجب اختيار العميل والفندق")
+# -----------------------------
+# حفظ الحجز
+# -----------------------------
+if st.button("💾 حفظ الحجز", key="save_booking"):
+    if not sel_client[1] or not sel_hotel[1]:
+        st.error("❗ يجب اختيار العميل والفندق.")
+    elif days < 1:
+        st.error("❗ تاريخ الخروج غير صحيح.")
+    else:
+        booking_id = add_booking(
+            client_id=sel_client[1],
+            hotel_id=sel_hotel[1],
+            restaurant_id=sel_rest[1] if sel_rest and sel_rest[1] else None,
+            rooms=int(rooms),
+            pax=int(pax),
+            checkin=str(checkin),
+            checkout=str(checkout),
+            room_price=float(room_price),
+            meal_price=float(meal_price),
+            notes=notes.strip()
+        )
+        st.success(f"✅ تم تسجيل الحجز بنجاح (رقم الحجز: {booking_id})")
