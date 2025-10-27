@@ -8,7 +8,7 @@ conn = _conn()
 
 # جلب بيانات القوائم
 clients = conn.execute("SELECT id, name FROM clients").fetchall()
-hotels = conn.execute("SELECT id, name_ar FROM hotels").fetchall()
+hotels = conn.execute("SELECT id, name as label FROM hotels").fetchall()
 restaurants = conn.execute("SELECT id, name_ar FROM restaurants").fetchall()
 
 # ------------------------------
