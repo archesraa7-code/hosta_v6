@@ -7,7 +7,7 @@ st.title("🏨 إدارة الحجوزات")
 conn = _conn()
 
 # جلب بيانات القوائم
-clients = conn.execute("SELECT id, name FROM clients").fetchall()
+clients = conn.execute("SELECT id, name FROM customers").fetchall()
 hotels = conn.execute("SELECT id, name as label FROM hotels").fetchall()
 restaurants = conn.execute("SELECT id, name FROM restaurants").fetchall()
 
