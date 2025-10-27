@@ -74,7 +74,8 @@ with st.sidebar:
 
     st.markdown("---")
 
-    st.page_link("pages/10_⚙️_إعدادات_الشركة.py", label="إعدادات الشركة", icon="⚙️")    st.markdown("---")
+    st.page_link("pages/10_⚙️_إعدادات_الشركة.py", label="إعدادات الشركة", icon="⚙️") 
+    st.markdown("---")
     st.caption("Hilben Hotel Ops Pro — النسخة التجارية")
 
 # ========= Helpers =========
