@@ -82,93 +82,57 @@ st.markdown("""
 # ---------------------- Dashboard ----------------------
 st.title("لوحة التحكم — Hotel Ops Pro")
 
-conn = _conn  # اتصال جاهز (لا تضف أقواس)
-
-def fetch_scalar(sql: str, params: tuple = ()) -> float:
-    """إرجاع قيمة رقمية بأمان (0 لو مفيش نتيجة أو الجدول غير موجود)."""
-    try:
-        row = conn.execute(sql, params).fetchone()
-        if not row: 
-            return 0
-        val = row[0]
-        return float(val) if val is not None else 0.0
-    except Exception:
-        return 0.0
+conn = _conn
 
 today = date.today().isoformat()
 
-# إجمالي الحجوزات
-total_bookings = fetch_scalar("SELECT COUNT(*) FROM bookings")
+# عدد الحجوزات الكلي
+total_bookings = conn.execute("SELECT COUNT(*) FROM bookings").fetchone()[0] or 0
 
 # الحجوزات النشطة اليوم
-q_active = """
-SELECT COUNT(*)
-FROM bookings
+active_today = conn.execute("""
+SELECT COUNT(*) FROM bookings
 WHERE date(checkin) <= date(?) AND date(checkout) >= date(?)
-"""
-active_today = fetch_scalar(q_active, (today, today))
+""", (today, today)).fetchone()[0] or 0
 
-# أرصدة من دفتر الأستاذ حسب النوع (debit + / credit -)
-def ledger_net(party_type: str) -> float:
-    sql = """
-    SELECT COALESCE(SUM(CASE WHEN direction='debit' THEN amount
-                             WHEN direction='credit' THEN -amount
-                             ELSE 0 END), 0)
-    FROM ledger
-    WHERE party_type = ?
-    """
-    return fetch_scalar(sql, (party_type,))
+# أرصدة ledger
+def ledger_net(party_type):
+    row = conn.execute("""
+        SELECT COALESCE(SUM(
+        CASE WHEN direction='debit' THEN amount
+        WHEN direction='credit' THEN -amount
+        ELSE 0 END),0)
+        FROM ledger WHERE party_type = ?
+    """, (party_type,)).fetchone()
+    return row[0] if row else 0
 
-due_hotels       = ledger_net("hotel")        # لصالح الفنادق +
-due_restaurants  = ledger_net("restaurant")   # لصالح المطاعم +
-receivable_clients = ledger_net("client")     # على العملاء +
+due_hotels = ledger_net("hotel")
+due_restaurants = ledger_net("restaurant")
+due_clients = ledger_net("client")
 
 # عرض البطاقات
 c1, c2, c3, c4 = st.columns(4)
-with c1:
-    st.markdown(f"""
-    <div class="card gold">
-      <h4>إجمالي الحجوزات</h4>
-      <div class="num">{int(total_bookings)}</div>
-    </div>""", unsafe_allow_html=True)
-with c2:
-    st.markdown(f"""
-    <div class="card blue">
-      <h4>حجوزات نشطة اليوم</h4>
-      <div class="num">{int(active_today)}</div>
-    </div>""", unsafe_allow_html=True)
-with c3:
-    st.markdown(f"""
-    <div class="card red">
-      <h4>مستحقات الفنادق (ر.س)</h4>
-      <div class="num">{due_hotels:,.2f}</div>
-    </div>""", unsafe_allow_html=True)
-with c4:
-    st.markdown(f"""
-    <div class="card green">
-      <h4>مستحقات المطاعم (ر.س)</h4>
-      <div class="num">{due_restaurants:,.2f}</div>
-    </div>""", unsafe_allow_html=True)
+c1.markdown(f"""<div class="card gold"><h4>إجمالي الحجوزات</h4><div class="num">{total_bookings}</div></div>""", unsafe_allow_html=True)
+c2.markdown(f"""<div class="card blue"><h4>نشط اليوم</h4><div class="num">{active_today}</div></div>""", unsafe_allow_html=True)
+c3.markdown(f"""<div class="card red"><h4>مستحق للفنادق (ر.س)</h4><div class="num">{due_hotels:,.2f}</div></div>""", unsafe_allow_html=True)
+c4.markdown(f"""<div class="card green"><h4>مستحق للمطاعم (ر.س)</h4><div class="num">{due_restaurants:,.2f}</div></div>""", unsafe_allow_html=True)
 
 st.markdown("")
-c5, c6 = st.columns(2)
-with c5:
-    st.markdown(f"""
-    <div class="card">
-      <h4>المطلوب من العملاء (ر.س)</h4>
-      <div class="num">{receivable_clients:,.2f}</div>
-    </div>""", unsafe_allow_html=True)
 
-with c6:
-    st.markdown("""
-    <div class="card">
-      <h4>نصائح سريعة</h4>
-      • انتقل بين الصفحات من الشريط العلوي. <br/>
-      • صفحة الحجوزات بحساب تلقائي (أيام × غرف + الوجبات). <br/>
-      • القيود تُسجّل في دفتر الأستاذ لعرض كشف الحساب فورًا. <br/>
-      • الثيم أزرق ملكي + ذهبي، واتجاه عربي كامل.
-    </div>
-    """, unsafe_allow_html=True)
+# جدول التشغيل اليومي
+st.subheader("تشغيل اليوم")
 
-st.markdown("---")
-st.caption("© Hilben — Hotel Ops Pro v4 • ثيم أزرق ملكي + ذهبي • RTL كامل")
+daily = conn.execute("""
+SELECT 
+(SELECT name FROM clients WHERE id=bookings.client_id) AS client,
+(SELECT name FROM hotels  WHERE id=bookings.hotel_id) AS hotel,
+rooms, pax, checkin, checkout
+FROM bookings
+WHERE date(checkin) <= date(?) AND date(checkout) >= date(?)
+ORDER BY checkin
+""", (today, today)).fetchall()
+
+if daily:
+    st.table(daily)
+else:
+    st.info("لا توجد تشغيلات اليوم ✅")
