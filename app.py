@@ -1,146 +1,122 @@
-# app.py — Hilben Hotel Ops Pro (Final Dashboard, No Fixed Hotel Capacity)
+# app.py — Hilben Hotel Ops Pro (Dashboard + Sidebar)
 import streamlit as st
 from datetime import date, timedelta
-from db import _conn  # اتصال SQLite جاهز (بدون أقواس)
+import sqlite3
 
-# -------------------------------------------------------------
-# إعداد الصفحة
-# -------------------------------------------------------------
+# ========= إعداد الصفحة =========
 st.set_page_config(
-    page_title="Hilben — Hotel Ops Pro",
+    page_title="Hilben — لوحة التحكم",
     page_icon="🏨",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-conn = _conn
-today = date.today()
-today_s = today.isoformat()
-in_3_days = (today + timedelta(days=3)).isoformat()
+# ========= اتصال قاعدة البيانات (عدّل الاسم لو مختلف) =========
+DB_PATH = "hotel.db"
+def get_conn():
+    try:
+        return sqlite3.connect(DB_PATH, check_same_thread=False)
+    except Exception:
+        return None
 
-# -------------------------------------------------------------
-# الثيم + RTL
-# -------------------------------------------------------------
+conn = get_conn()
+
+# ========= ثيم ملكي + RTL =========
 st.markdown("""
 <style>
 html, body, [class*="css"] { direction: rtl; text-align: right; }
 .stApp { background: linear-gradient(180deg, #0b1529 0%, #0a1324 100%); }
+h1, h2, h3 { color:#fff !important; }
 
-/* عناوين */
-h1, h2, h3 { color: #fff !important; }
-
-/* بطاقات */
 .card{
-  background:#0c1428; border-radius:14px; padding:14px 16px;
-  border:1px solid rgba(255,255,255,.06); color:#e7eaf3;
+  background:#0c1428; border:1px solid rgba(255,255,255,.08);
+  border-radius:12px; padding:14px; color:#e7eaf3;
 }
-.card .num{ font-size:24px; font-weight:800; }
-
-/* ألوان بطاقات */
+.card .num{ font-size:24px; font-weight:800; color:#fff; }
 .gold{ border-color: rgba(212,175,55,.45); }
 .blue{ border-color: rgba(120,165,255,.35); }
-.red{ border-color: rgba(255,112,112,.35); }
-.green{ border-color: rgba(84,214,123,.35); }
+.red{  border-color: rgba(255,112,112,.35); }
+.green{border-color: rgba(84,214,123,.35); }
 
-/* أزرار */
 .stButton>button{
-  background:#D4AF37; color:#1a1a1a; border-radius:8px;
-  padding:6px 18px; font-weight:700; border:0;
+  background:#D4AF37; color:#1a1a1a; font-weight:700;
+  border:0; border-radius:10px; padding:.6rem 1rem;
 }
 .stButton>button:hover{ filter:brightness(.92); }
-
-/* جداول */
 table { direction: rtl !important; text-align:right !important; }
+.badge{ display:inline-block; margin:4px 6px 0 0; padding:6px 10px; border-radius:10px; font-weight:700; font-size:12px; color:#111; }
+.b-red{ background:#ffb3b3; }
+.b-orange{ background:#ffd6a1; }
+.b-purple{ background:#d8c8ff; }
+.b-blue{ background:#cde4ff; }
 </style>
 """, unsafe_allow_html=True)
 
-# -------------------------------------------------------------
-# SIDEBAR — الأقسام
-# -------------------------------------------------------------
+# ========= Sidebar (الأقسام) =========
 with st.sidebar:
-    st.markdown("## 🟢 العمليات اليومية")
-    st.page_link("pages/1_الحجوزات.py", label="إدارة الحجوزات", icon="📝")
-    st.page_link("pages/2_العمليات_اليومية.py", label="Check-in / Check-out اليوم", icon="🔄")
-
-    st.markdown("## 🟣 إدارة البيانات")
-    st.page_link("pages/3_العملاء.py", label="العملاء", icon="👥")
-    st.page_link("pages/4_الفنادق.py", label="الفنادق", icon="🏨")
-    st.page_link("pages/5_المطاعم.py", label="المطاعم", icon="🍽️")
-    st.page_link("pages/6_الموظفين.py", label="الموظفين", icon="🧑‍💼")
-
-    st.markdown("## 🟡 الحسابات")
-    st.page_link("pages/7_كشف_الحساب.py", label="كشف حساب العملاء", icon="📄")
-    st.page_link("pages/8_مستحقات_الفنادق.py", label="مستحقات الفنادق", icon="🏨")
-    st.page_link("pages/9_مستحقات_المطاعم.py", label="مستحقات المطاعم", icon="🍛")
-    st.page_link("pages/10_المصروفات.py", label="المصروفات اليومية", icon="💸")
-    st.page_link("pages/11_عهدة_المندوب.py", label="عهدة المندوب", icon="🧾")
-
-    st.markdown("## 🔴 الفواتير والسندات والتقارير")
-    st.page_link("pages/12_الفواتير.py", label="الفواتير", icon="🧾")
-    st.page_link("pages/13_السندات.py", label="سندات قبض / صرف", icon="📝")
-    st.page_link("pages/14_التقارير.py", label="التقارير الإحصائية", icon="📊")
-
+    st.title("🏨 Hilben — القائمة")
+    st.page_link("app.py", label="اللوحة الرئيسية", icon="🏠")
+    st.markdown("---")
+    st.page_link("pages/1_🛏️_إدارة_الحجوزات.py", label="إدارة الحجوزات", icon="🛏️")
+    st.page_link("pages/2_👥_إدارة_العملاء.py", label="إدارة العملاء", icon="👥")
+    st.page_link("pages/3_🏨_إدارة_الفنادق.py", label="إدارة الفنادق", icon="🏨")
+    st.page_link("pages/4_🍽️_إدارة_المطاعم.py", label="إدارة المطاعم", icon="🍽️")
+    st.page_link("pages/5_🧑‍💼_إدارة_الموظفين.py", label="إدارة الموظفين", icon="🧑‍💼")
+    st.markdown("---")
+    st.page_link("pages/6_🧾_السندات.py", label="السندات (قبض/صرف)", icon="🧾")
+    st.page_link("pages/7_💸_المصروفات_اليومية.py", label="المصروفات اليومية", icon="💸")
+    st.page_link("pages/8_📄_كشف_الحسابات.py", label="كشف الحسابات", icon="📄")
+    st.page_link("pages/9_💰_الربحية_والتقارير.py", label="الربحية والتقارير", icon="💰")
+    st.page_link("pages/10_⚙️_إعدادات_الشركة.py", label="إعدادات الشركة", icon="⚙️")
     st.markdown("---")
     st.caption("Hilben Hotel Ops Pro — النسخة التجارية")
 
-# -------------------------------------------------------------
-# دوال مساعدة
-# -------------------------------------------------------------
-def fetch_scalar(sql: str, params: tuple = ()) -> float:
+# ========= Helpers =========
+def fetch_scalar(sql, params=()):
     try:
         row = conn.execute(sql, params).fetchone()
-        if not row: return 0
-        return float(row[0] or 0)
+        return float(row[0] or 0) if row else 0.0
     except Exception:
         return 0.0
 
-def try_clients_or_customers_base(select_cols: str, where_sql: str, params: tuple):
-    """
-    يحاول يعرض اسم العميل من جدول clients؛ لو غير موجود يستخدم customers.
-    select_cols: نص الأعمدة بعد SELECT (مثلاً 'c.name AS العميل, ...')
-    where_sql: جزء WHERE .../ ORDER BY...
-    """
-    # محاولة بجدول clients
-    sql_clients = f"""
-    SELECT 
-      (SELECT name FROM clients WHERE id=b.client_id) AS العميل,
-      (SELECT name FROM hotels  WHERE id=b.hotel_id)  AS الفندق,
-      b.rooms AS الغرف, b.pax AS الافراد, b.checkin AS دخول, b.checkout AS خروج
-    FROM bookings b
-    {where_sql}
+def try_clients_or_customers(where_sql, params=()):
+    # يحاول clients ثم customers لاسم العميل
+    q1 = f"""
+    SELECT (SELECT name FROM clients WHERE id=b.client_id) AS العميل,
+           (SELECT name FROM hotels  WHERE id=b.hotel_id)  AS الفندق,
+           b.rooms AS الغرف, b.pax AS الافراد, b.checkin AS دخول, b.checkout AS خروج
+    FROM bookings b {where_sql}
     """
     try:
-        return conn.execute(sql_clients, params).fetchall()
+        return conn.execute(q1, params).fetchall()
     except Exception:
-        # محاولة بجدول customers
-        sql_customers = f"""
-        SELECT 
-          (SELECT name FROM customers WHERE id=b.client_id) AS العميل,
-          (SELECT name FROM hotels  WHERE id=b.hotel_id)    AS الفندق,
-          b.rooms AS الغرف, b.pax AS الافراد, b.checkin AS دخول, b.checkout AS خروج
-        FROM bookings b
-        {where_sql}
+        q2 = f"""
+        SELECT (SELECT name FROM customers WHERE id=b.client_id) AS العميل,
+               (SELECT name FROM hotels  WHERE id=b.hotel_id)  AS الفندق,
+               b.rooms AS الغرف, b.pax AS الافراد, b.checkin AS دخول, b.checkout AS خروج
+        FROM bookings b {where_sql}
         """
-        return conn.execute(sql_customers, params).fetchall()
+        return conn.execute(q2, params).fetchall()
 
-# -------------------------------------------------------------
-# KPIs — المؤشرات الرئيسية
-# -------------------------------------------------------------
-st.title("لوحة التحكم الرئيسية")
+# ========= Dashboard =========
+st.markdown("<h1 style='text-align:center;font-weight:800;'>📊 لوحة التحكم الرئيسية</h1>", unsafe_allow_html=True)
 
+today = date.today()
+today_s = today.isoformat()
+
+# KPIs
 total_bookings = fetch_scalar("SELECT COUNT(*) FROM bookings")
 active_today   = fetch_scalar("""
     SELECT COUNT(*) FROM bookings
     WHERE date(checkin) <= date(?) AND date(checkout) >= date(?)
 """, (today_s, today_s))
 
-def ledger_net(party_type: str) -> float:
+def ledger_net(party_type):
     return fetch_scalar("""
         SELECT COALESCE(SUM(
-          CASE WHEN direction='debit' THEN amount
-               WHEN direction='credit' THEN -amount
-               ELSE 0 END), 0)
-        FROM ledger WHERE party_type=?
+            CASE WHEN direction='debit' THEN amount
+                 WHEN direction='credit' THEN -amount ELSE 0 END
+        ),0) FROM ledger WHERE party_type=?
     """, (party_type,))
 
 due_hotels      = ledger_net("hotel")
@@ -153,112 +129,35 @@ c2.markdown(f"<div class='card blue'><h4>نشطة اليوم</h4><div class='num
 c3.markdown(f"<div class='card red'><h4>مستحق للفنادق (ر.س)</h4><div class='num'>{due_hotels:,.2f}</div></div>", unsafe_allow_html=True)
 c4.markdown(f"<div class='card green'><h4>مستحق للمطاعم (ر.س)</h4><div class='num'>{due_restaurants:,.2f}</div></div>", unsafe_allow_html=True)
 
-st.markdown("")
-
-# -------------------------------------------------------------
-# تشغيل اليوم — الحجوزات النشطة الآن
-# -------------------------------------------------------------
+# تشغيل اليوم
 st.subheader("تشغيل اليوم — حجوزات نشطة")
-active_rows = try_clients_or_customers_base(
-    select_cols="",
-    where_sql="WHERE date(b.checkin) <= date(?) AND date(b.checkout) >= date(?) ORDER BY b.checkin",
-    params=(today_s, today_s)
+active_rows = try_clients_or_customers(
+    "WHERE date(b.checkin) <= date(?) AND date(b.checkout) >= date(?) ORDER BY b.checkin",
+    (today_s, today_s)
 )
 st.table(active_rows) if active_rows else st.info("لا توجد تشغيلات اليوم ✅")
 
-# -------------------------------------------------------------
-# حالات اليوم التفصيلية (Check-in / Check-out / متأخرين)
-# -------------------------------------------------------------
+# تفاصيل اليوم
 st.subheader("تفاصيل الواقع التشغيلي")
 colA, colB, colC = st.columns(3)
 
-# Check-in اليوم
-ci_rows = try_clients_or_customers_base(
-    "", "WHERE date(b.checkin)=date(?) ORDER BY b.checkin", (today_s,)
-)
+ci = try_clients_or_customers("WHERE date(b.checkin)=date(?) ORDER BY b.checkin", (today_s,))
 with colA:
     st.write("🟢 Check-in اليوم")
-    st.table(ci_rows) if ci_rows else st.info("لا يوجد")
+    st.table(ci) if ci else st.info("لا يوجد")
 
-# Check-out اليوم
-co_rows = try_clients_or_customers_base(
-    "", "WHERE date(b.checkout)=date(?) ORDER BY b.checkout", (today_s,)
-)
+co = try_clients_or_customers("WHERE date(b.checkout)=date(?) ORDER BY b.checkout", (today_s,))
 with colB:
     st.write("🟠 Check-out اليوم")
-    st.table(co_rows) if co_rows else st.info("لا يوجد")
+    st.table(co) if co else st.info("لا يوجد")
 
-# متأخرين عن المغادرة (آخر 3 أيام فقط لتكون عملية)
-late_rows = try_clients_or_customers_base(
-    "", "WHERE date(b.checkout) < date(?) AND date(b.checkout) >= date(?) ORDER BY b.checkout DESC",
+late = try_clients_or_customers(
+    "WHERE date(b.checkout) < date(?) AND date(b.checkout) >= date(?) ORDER BY b.checkout DESC",
     (today_s, (today - timedelta(days=3)).isoformat())
 )
 with colC:
     st.write("🔴 متأخرين عن المغادرة")
-    st.table(late_rows) if late_rows else st.success("لا يوجد تأخير ✅")
-
-st.markdown("")
-
-# -------------------------------------------------------------
-# تشغيل الفنادق اليوم (بدون حاجة لسعة الفندق)
-# غرف اليوم = rooms × سعر الغرفة لليوم للحجوزات النشطة
-# -------------------------------------------------------------
-st.subheader("تشغيل الفنادق اليوم")
-hotels_today = conn.execute("""
-SELECT h.name AS الفندق,
-       SUM(b.rooms) AS الغرف_المشغولة_اليوم,
-       SUM(b.rooms * b.price_room) AS قيمة_الغرف_اليوم
-FROM bookings b
-JOIN hotels h ON h.id = b.hotel_id
-WHERE date(b.checkin) <= date(?) AND date(b.checkout) >= date(?)
-GROUP BY h.name
-ORDER BY قيمة_الغرف_اليوم DESC
-""", (today_s, today_s)).fetchall()
-
-st.table(hotels_today) if hotels_today else st.info("لا توجد حجوزات نشطة في الفنادق اليوم")
-
-# -------------------------------------------------------------
-# تشغيل المطاعم اليوم
-# وجبات اليوم = pax × سعر الوجبة لليوم للحجوزات النشطة (فقط لو restaurant_id موجود)
-# -------------------------------------------------------------
-st.subheader("تشغيل المطاعم اليوم")
-restaurants_today = conn.execute("""
-SELECT r.name AS المطعم,
-       SUM(b.pax) AS الافراد_اليوم,
-       SUM(b.pax * b.price_food) AS قيمة_الوجبات_اليوم
-FROM bookings b
-JOIN restaurants r ON r.id = b.restaurant_id
-WHERE b.restaurant_id IS NOT NULL
-  AND date(b.checkin) <= date(?) AND date(b.checkout) >= date(?)
-GROUP BY r.name
-ORDER BY قيمة_الوجبات_اليوم DESC
-""", (today_s, today_s)).fetchall()
-
-st.table(restaurants_today) if restaurants_today else st.info("لا توجد تشغيلات مطاعم اليوم")
-
-st.markdown("")
-
-# -------------------------------------------------------------
-# حجوزات قادمة خلال 3 أيام + حجوزات ستغادر خلال 3 أيام
-# -------------------------------------------------------------
-st.subheader("نظرة مستقبلية (3 أيام)")
-colF, colG = st.columns(2)
-
-incoming = try_clients_or_customers_base(
-    "", "WHERE date(b.checkin) > date(?) AND date(b.checkin) <= date(?) ORDER BY b.checkin",
-    (today_s, in_3_days)
-)
-with colF:
-    st.write("🟡 حجوزات قادمة خلال 3 أيام")
-    st.table(incoming) if incoming else st.info("لا يوجد حجوزات قادمة قريبة")
-
-leaving_soon = try_clients_or_customers_base(
-    "", "WHERE date(b.checkout) >= date(?) AND date(b.checkout) <= date(?) ORDER BY b.checkout",
-    (today_s, in_3_days)
-)
-with colG:
-    st.write("🟠 حجوزات ستغادر خلال 3 أيام")
-    st.table(leaving_soon) if leaving_soon else st.info("لا يوجد مغادرة قريبة")
+    st.table(late) if late else st.success("لا يوجد تأخير ✅")
 
 st.markdown("---")
-st.caption("© Hilben — Hotel Ops Pro | Dashboard تشغيلية ومالية — بدون الحاجة لسعة غرف الفنادق")
+st.caption("© Hilben — Hotel Ops Pro | Dashboard جاهزة + صفحات فارغة للتعبئة اللاحقة")
